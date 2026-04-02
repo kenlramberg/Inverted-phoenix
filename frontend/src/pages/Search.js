@@ -15,6 +15,7 @@ const Search = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [results, setResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [searchStats, setSearchStats] = useState({ internal: 0, external: 0 });
 
   // Get query from URL params
   useEffect(() => {
@@ -34,9 +35,24 @@ const Search = () => {
       const response = await axios.get(`${API}/search`, {
         params: { q: query }
       });
-      setResults(response.data);
+      
+      // Handle new hybrid search response format
+      const data = response.data;
+      if (data.results) {
+        setResults(data.results);
+        setSearchStats({
+          internal: data.internal_count || 0,
+          external: data.external_count || 0
+        });
+      } else {
+        // Fallback for old format
+        setResults(response.data);
+        setSearchStats({ internal: response.data.length, external: 0 });
+      }
     } catch (error) {
       console.error('Search error:', error);
+      setResults([]);
+      setSearchStats({ internal: 0, external: 0 });
     } finally {
       setIsSearching(false);
     }
@@ -77,8 +93,14 @@ const Search = () => {
             </div>
           </form>
           <p className="text-sm text-gray-500 mt-4">
-            This is a human-curated knowledge base. No external APIs. No paid ranking. Pure information.
+            Hybrid AI search: AU4A knowledge base + unbiased web search (no paid ads)
           </p>
+          {(searchStats.internal > 0 || searchStats.external > 0) && (
+            <div className="flex gap-4 mt-2 text-xs text-gray-600">
+              <span>AU4A Results: {searchStats.internal}</span>
+              <span>Web Results: {searchStats.external}</span>
+            </div>
+          )}
         </div>
 
         {/* Results */}
@@ -86,35 +108,100 @@ const Search = () => {
           {isSearching ? (
             <div className="text-center text-gray-500 py-12">Searching...</div>
           ) : results.length > 0 ? (
-            results.map((result) => (
-              <Card key={result.id} className="bg-gray-900/50 border-gray-800 p-6 hover:border-purple-500/50 transition-colors">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <h3 className="text-xl font-normal mb-2">{result.title}</h3>
-                    <p className="text-gray-400 mb-3">{result.content.substring(0, 200)}...</p>
-                    <div className="flex gap-2 items-center">
-                      <Badge variant="outline" className="text-xs">{result.category}</Badge>
-                      {result.verified && (
-                        <Badge className="text-xs bg-green-900/30 text-green-400">Verified</Badge>
+            results.map((result, index) => {
+              const isAU4A = result.result_source === 'au4a';
+              const isWeb = result.result_source === 'web';
+              
+              return (
+                <Card 
+                  key={result.id || index} 
+                  className={`p-6 transition-colors ${
+                    isAU4A 
+                      ? 'bg-gradient-to-r from-purple-900/20 to-gray-900/50 border-purple-500/30' 
+                      : 'bg-gray-900/50 border-gray-800 hover:border-blue-500/50'
+                  }`}
+                >
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex gap-2 items-center flex-wrap">
+                      {isAU4A && (
+                        <>
+                          <Badge className="bg-purple-600 text-white">AU4A Knowledge</Badge>
+                          {result.verified && (
+                            <Badge className="bg-green-900/30 text-green-400">Verified</Badge>
+                          )}
+                        </>
                       )}
-                      <span className="text-xs text-gray-600">Quality: {result.quality_score.toFixed(1)}/10</span>
+                      {isWeb && (
+                        <>
+                          <Badge variant="outline" className="border-blue-500 text-blue-400">Web Search</Badge>
+                          {result.ai_processed && (
+                            <Badge variant="outline" className="text-xs">AI Processed</Badge>
+                          )}
+                        </>
+                      )}
+                      {result.category && (
+                        <Badge variant="outline" className="text-xs">{result.category}</Badge>
+                      )}
                     </div>
+                    {result.relevance_score && (
+                      <span className="text-xs text-gray-600">
+                        Relevance: {result.relevance_score.toFixed(1)}/10
+                      </span>
+                    )}
+                    {result.quality_score && !result.relevance_score && (
+                      <span className="text-xs text-gray-600">
+                        Quality: {result.quality_score.toFixed(1)}/10
+                      </span>
+                    )}
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => navigate(`/request/${result.fulfilled_request_id}`)}
-                    data-testid="view-result-button"
-                  >
-                    <ExternalLink size={16} />
-                  </Button>
-                </div>
-              </Card>
-            ))
+                  
+                  <h3 className="text-xl font-normal mb-2 text-gray-200">
+                    {result.title}
+                  </h3>
+                  
+                  <p className="text-gray-400 mb-3">
+                    {result.summary || result.content?.substring(0, 200) || result.snippet}
+                    {(result.content?.length > 200 || result.snippet) && '...'}
+                  </p>
+                  
+                  {result.why_relevant && (
+                    <p className="text-sm text-gray-500 italic mb-3">
+                      Why relevant: {result.why_relevant}
+                    </p>
+                  )}
+                  
+                  {result.url && (
+                    <a 
+                      href={result.url} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-sm text-blue-400 hover:text-blue-300 flex items-center gap-1"
+                    >
+                      {result.url}
+                      <ExternalLink size={12} />
+                    </a>
+                  )}
+                  
+                  {result.fulfilled_request_id && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => navigate(`/request/${result.fulfilled_request_id}`)}
+                      className="mt-2"
+                      data-testid="view-result-button"
+                    >
+                      View Request Details
+                    </Button>
+                  )}
+                </Card>
+              );
+            })
           ) : searchQuery && !isSearching ? (
             <div className="text-center text-gray-500 py-12">
               <p>No results found for "{searchQuery}"</p>
-              <p className="text-sm mt-2">The knowledge base grows as requests are fulfilled.</p>
+              <p className="text-sm mt-2">
+                {searchStats.internal === 0 && 'The knowledge base is still growing. Web search returned no unbiased results.'}
+              </p>
             </div>
           ) : null}
         </div>

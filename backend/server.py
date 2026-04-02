@@ -611,14 +611,21 @@ async def verify_execution(execution_id: str, verify_data: ExecutionVerify):
     return {"message": "Execution verified"}
 
 # ============================================================================
-# API ROUTES - SEARCH ENGINE
+# API ROUTES - SEARCH ENGINE (HYBRID: AU4A + AI WEB SEARCH)
 # ============================================================================
 
-@api_router.get("/search", response_model=List[KnowledgeEntry])
+from ai_search import hybrid_search
+
+@api_router.get("/search")
 async def search_knowledge(q: str = Query(..., min_length=1), limit: int = Query(default=20, le=100)):
-    """Search the knowledge base"""
-    # Simple text search (can be enhanced with full-text indexing)
-    results = await db.knowledge_base.find(
+    """
+    Hybrid AI search engine:
+    1. Search AU4A knowledge base first (human-curated, verified)
+    2. If < 3 results, search the web with AI (no ad bias)
+    3. Return combined results with clear source labels
+    """
+    # Step 1: Search internal knowledge base
+    internal_results = await db.knowledge_base.find(
         {
             "$or": [
                 {"title": {"$regex": q, "$options": "i"}},
@@ -630,10 +637,23 @@ async def search_knowledge(q: str = Query(..., min_length=1), limit: int = Query
         {"_id": 0}
     ).sort("quality_score", -1).limit(limit).to_list(limit)
     
-    for entry in results:
-        entry['created_at'] = datetime.fromisoformat(entry['created_at'])
+    # Convert datetime
+    for entry in internal_results:
+        entry['created_at'] = datetime.fromisoformat(entry['created_at']) if isinstance(entry.get('created_at'), str) else entry.get('created_at')
     
-    return results
+    # Step 2: If insufficient internal results, use hybrid AI search
+    if len(internal_results) < 3:
+        hybrid_results = await hybrid_search(q, internal_results, max_total=limit)
+        return hybrid_results
+    else:
+        # Enough internal results - return only AU4A knowledge
+        return {
+            'query': q,
+            'internal_count': len(internal_results),
+            'external_count': 0,
+            'results': [{**r, 'result_source': 'au4a', 'verified': True} for r in internal_results]
+        }
+
 
 # ============================================================================
 # API ROUTES - USER
