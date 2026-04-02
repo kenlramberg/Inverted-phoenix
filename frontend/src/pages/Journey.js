@@ -51,49 +51,40 @@ const Journey = () => {
       title: "The Beginning",
       description: "You can Ask",
       feature: "ask",
-      unlocked: true
+      unlocked: true,
+      actions: 0
     },
     {
       level: 1,
-      title: "First Step",
-      description: "Evaluate requests for ethics",
-      feature: "evaluate",
-      threshold: 5
-    },
-    {
-      level: 2,
       title: "The Giver",
       description: "Contribute to fulfill wishes",
       feature: "contribute",
-      threshold: 15
+      threshold: 1,
+      actions: 1
     },
     {
-      level: 4,
+      level: 2,
       title: "The Strategist",
       description: "Coordinate complex fulfillment",
       feature: "coordinate",
-      threshold: 30
+      threshold: 3,
+      actions: 3
     },
     {
-      level: 6,
+      level: 3,
       title: "The Executor",
       description: "Take direct action",
       feature: "execute",
-      threshold: 50
+      threshold: 5,
+      actions: 5
     },
     {
-      level: 8,
-      title: "The Searcher",
-      description: "Advanced search capabilities",
-      feature: "advanced_search",
-      threshold: 100
-    },
-    {
-      level: 10,
+      level: 4,
       title: "The Enlightened",
-      description: "All features unlocked. You understand.",
+      description: "All layers revealed. You understand.",
       feature: "all",
-      threshold: 500
+      threshold: 10,
+      actions: 10
     }
   ];
 
@@ -158,9 +149,12 @@ const Journey = () => {
         {/* Layers */}
         <div className="space-y-4">
           <h2 className="text-2xl font-light mb-6">Layers of Revelation</h2>
+          <p className="text-sm text-gray-500 mb-6 italic">
+            Each layer reveals itself only after you complete the previous one. This is compulsory, not a choice.
+          </p>
           {layers.map((layer) => {
-            const isUnlocked = userProgress.unlocked_features.includes(layer.feature) || layer.unlocked;
-            const isCurrent = userProgress.participation_level === layer.level;
+            const isUnlocked = userProgress.total_actions >= (layer.actions || 0);
+            const isCurrent = userProgress.total_actions === (layer.actions || 0);
             
             return (
               <Card
@@ -182,7 +176,7 @@ const Journey = () => {
                       )}
                       <h3 className="text-xl font-light">{layer.title}</h3>
                       {isCurrent && (
-                        <Badge className="bg-purple-600 text-white">Current</Badge>
+                        <Badge className="bg-purple-600 text-white">Next</Badge>
                       )}
                     </div>
                     <p className={isUnlocked ? 'text-gray-400' : 'text-gray-600'}>
@@ -190,7 +184,7 @@ const Journey = () => {
                     </p>
                     {!isUnlocked && layer.threshold && (
                       <p className="text-xs text-gray-600 mt-2">
-                        Unlocks at {layer.threshold} actions
+                        Unlocks at {layer.actions} total actions
                       </p>
                     )}
                   </div>

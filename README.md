@@ -182,17 +182,18 @@ The application will be available at `http://localhost:3000`
 
 ## Progressive Revelation System
 
-Users unlock features through participation:
+**The 4 quadrants reveal SEQUENTIALLY and COMPULSORILY** - not all at once. Users must complete each part before the next is revealed.
 
-| Level | Actions Required | Unlocks |
-|-------|------------------|---------|
-| 0 | 0 | Ask |
-| 1 | 5 | Evaluate |
-| 2 | 15 | Contribute |
-| 4 | 30 | Coordinate |
-| 6 | 50 | Execute |
-| 8 | 100 | Advanced Search |
-| 10 | 500 | All Features |
+### Sequential Revelation:
+
+| Actions Completed | Visible Quadrant | Required Action |
+|-------------------|------------------|-----------------|
+| 0 | **Ask** only | Submit a request |
+| 1+ | **Ask** + **Contribute** | Help fulfill a request |
+| 3+ | **Ask** + **Contribute** + **Coordinate** | Create coordination plan |
+| 5+ | **All 4 Quadrants** | Execute an action |
+
+**This is compulsory, not a choice.** You cannot skip to the next quadrant without completing the previous one.
 
 ---
 
