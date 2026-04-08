@@ -124,6 +124,45 @@ class EvaluationCreate(BaseModel):
     comments: Optional[str] = None
 
 # ============================================================================
+# MODELS - CONTRIBUTION OFFERS (Supply Side)
+# ============================================================================
+
+class ContributionOffer(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    contributor_id: Optional[str] = "anonymous"
+    
+    offer_type: str  # skill, item, knowledge, time, connection, other
+    description: str
+    category: str = "general"
+    
+    availability: Optional[str] = None
+    location: Optional[str] = None
+    tags: List[str] = []
+    
+    # Matching
+    matched_request_id: Optional[str] = None
+    is_fulfilled: bool = False
+    
+    # Source tracking
+    source: str = "internal_app"  # or "external_poll"
+    contact_info: Optional[str] = None  # For external poll follow-ups
+    
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+class ContributionOfferCreate(BaseModel):
+    contributor_id: Optional[str] = "anonymous"
+    offer_type: str
+    description: str
+    category: str = "general"
+    availability: Optional[str] = None
+    location: Optional[str] = None
+    tags: List[str] = []
+    source: str = "internal_app"
+    contact_info: Optional[str] = None
+
+# ============================================================================
 # MODELS - B: CONTRIBUTE LAYER
 # ============================================================================
 
@@ -432,6 +471,76 @@ async def update_request_scores(request_id: str):
             }
         }
     )
+
+# ============================================================================
+# API ROUTES - CONTRIBUTION OFFERS (Supply Side / Ramp-up)
+# ============================================================================
+
+@api_router.post("/offer", response_model=ContributionOffer)
+async def create_offer(offer_data: ContributionOfferCreate):
+    """Submit what you can give/contribute (Supply side)"""
+    offer = ContributionOffer(**offer_data.model_dump())
+    doc = offer.model_dump()
+    doc['created_at'] = doc['created_at'].isoformat()
+    
+    await db.contribution_offers.insert_one(doc)
+    return offer
+
+@api_router.get("/offers", response_model=List[ContributionOffer])
+async def get_offers(
+    offer_type: Optional[str] = None,
+    category: Optional[str] = None,
+    unfulfilled_only: bool = True,
+    limit: int = Query(default=50, le=100)
+):
+    """Browse contribution offers (what people can give)"""
+    filter_query = {}
+    if offer_type:
+        filter_query["offer_type"] = offer_type
+    if category:
+        filter_query["category"] = category
+    if unfulfilled_only:
+        filter_query["is_fulfilled"] = False
+    
+    offers = await db.contribution_offers.find(filter_query, {"_id": 0}).sort("created_at", -1).limit(limit).to_list(limit)
+    
+    for offer in offers:
+        offer['created_at'] = datetime.fromisoformat(offer['created_at'])
+    
+    return offers
+
+@api_router.get("/match-offers/{request_id}")
+async def match_offers_to_request(request_id: str, limit: int = 10):
+    """Find contribution offers that might fulfill a request"""
+    # Get the request
+    request = await db.requests.find_one({"id": request_id}, {"_id": 0})
+    if not request:
+        raise HTTPException(status_code=404, detail="Request not found")
+    
+    # Simple keyword matching (can be enhanced with AI)
+    request_keywords = request['content'].lower().split()
+    
+    # Find offers with matching keywords
+    offers = await db.contribution_offers.find(
+        {
+            "is_fulfilled": False,
+            "$or": [
+                {"description": {"$regex": "|".join(request_keywords[:5]), "$options": "i"}},
+                {"category": request['category']},
+                {"tags": {"$in": request_keywords[:10]}}
+            ]
+        },
+        {"_id": 0}
+    ).limit(limit).to_list(limit)
+    
+    for offer in offers:
+        offer['created_at'] = datetime.fromisoformat(offer['created_at'])
+    
+    return {
+        "request_id": request_id,
+        "request_content": request['content'],
+        "potential_matches": offers
+    }
 
 # ============================================================================
 # API ROUTES - B: CONTRIBUTE LAYER

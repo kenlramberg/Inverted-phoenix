@@ -48,9 +48,17 @@ const Ask = () => {
         description: "Your request is now being evaluated by the community.",
       });
 
-      // Navigate to request detail page
+      // Prompt user to contribute
       setTimeout(() => {
-        navigate(`/request/${response.data.id}`);
+        const shouldContribute = window.confirm(
+          "You've asked for something. Would you like to tell us what YOU can give in return?"
+        );
+        
+        if (shouldContribute) {
+          navigate('/give');
+        } else {
+          navigate(`/request/${response.data.id}`);
+        }
       }, 1500);
     } catch (error) {
       console.error('Error submitting request:', error);

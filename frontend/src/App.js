@@ -10,6 +10,8 @@ import Coordinate from '@/pages/Coordinate';
 import Execute from '@/pages/Execute';
 import Journey from '@/pages/Journey';
 import RequestDetail from '@/pages/RequestDetail';
+import GivingPoll from '@/pages/GivingPoll';
+import WhatCanYouGive from '@/pages/WhatCanYouGive';
 
 function App() {
   return (
@@ -24,6 +26,8 @@ function App() {
         <Route path="/execute" element={<Execute />} />
         <Route path="/journey" element={<Journey />} />
         <Route path="/request/:id" element={<RequestDetail />} />
+        <Route path="/poll" element={<GivingPoll />} />
+        <Route path="/give" element={<WhatCanYouGive />} />
       </Routes>
     </BrowserRouter>
   );
