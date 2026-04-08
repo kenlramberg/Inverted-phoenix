@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const API = `${BACKEND_URL}/blackbox`;
+const API = `${BACKEND_URL}/api/blackbox`;
 
 const BlackBox = () => {
   const [accessKey, setAccessKey] = useState(localStorage.getItem('blackbox_key') || '');

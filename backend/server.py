@@ -1099,7 +1099,11 @@ async def create_user(user_data: UserCreate):
 @api_router.get("/user/{user_id}/stats", response_model=UserStats)
 async def get_user_stats(user_id: str):
     """Get user statistics"""
-    user = await db.users.find_one({"id": user_id}, {"_id": 0})
+    # Look up by id or anonymous_id
+    user = await db.users.find_one(
+        {"$or": [{"id": user_id}, {"anonymous_id": user_id}]}, 
+        {"_id": 0}
+    )
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
@@ -1108,7 +1112,11 @@ async def get_user_stats(user_id: str):
 @api_router.get("/user/{user_id}/progress")
 async def get_user_progress(user_id: str):
     """Get user's participation level and unlocked features"""
-    user = await db.users.find_one({"id": user_id}, {"_id": 0})
+    # Look up by id or anonymous_id
+    user = await db.users.find_one(
+        {"$or": [{"id": user_id}, {"anonymous_id": user_id}]}, 
+        {"_id": 0}
+    )
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     

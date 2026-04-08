@@ -14,9 +14,22 @@ import hashlib
 import secrets
 from datetime import datetime, timezone, timedelta
 import uuid
+from motor.motor_asyncio import AsyncIOMotorClient
+from dotenv import load_dotenv
+from pathlib import Path
+
+# Load environment variables
+ROOT_DIR = Path(__file__).parent
+load_dotenv(ROOT_DIR / '.env')
+
+# MongoDB connection for Black Box
+mongo_url = os.environ['MONGO_URL']
+bb_client = AsyncIOMotorClient(mongo_url)
+db = bb_client[os.environ['DB_NAME']]
 
 # Hidden router - not included in public API docs
-blackbox_router = APIRouter(prefix="/blackbox", include_in_schema=False)
+# Uses /api/blackbox prefix to ensure proper routing through Kubernetes ingress
+blackbox_router = APIRouter(prefix="/api/blackbox", include_in_schema=False)
 
 # Master secret key (set in environment, NEVER commit to git)
 MASTER_KEY = os.environ.get('BLACKBOX_MASTER_KEY', secrets.token_urlsafe(32))
