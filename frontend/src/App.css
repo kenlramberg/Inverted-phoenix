@@ -26,6 +26,15 @@ h1, h2, h3, h4, h5, h6 {
   letter-spacing: -0.02em;
 }
 
+/* Input & Textarea Fix - Ensure visible text */
+input, textarea, select {
+  color: #e0e0e0 !important;
+}
+
+input::placeholder, textarea::placeholder {
+  color: #6b7280 !important;
+}
+
 /* Animations */
 @keyframes fadeIn {
   from {

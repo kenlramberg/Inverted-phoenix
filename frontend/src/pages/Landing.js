@@ -147,7 +147,7 @@ const Landing = () => {
       {/* Hero Section */}
       <section className="container mx-auto px-6 pt-24 pb-16 text-center fade-in">
         <h1 className="text-6xl md:text-7xl font-extralight mb-6 tracking-tight">
-          Do you want the answers <span className="text-purple-400">2</span> everything…?
+          Ask Us <span className="text-purple-400">4</span> Anything
         </h1>
         <p className="text-xl md:text-2xl text-gray-400 font-light mb-4">
           The Greatest Social Experiment in History
@@ -165,7 +165,7 @@ const Landing = () => {
               placeholder="Search the knowledge base..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-12 pr-4 py-6 text-lg bg-gray-900/50 border-gray-700 focus:border-purple-500 rounded-full"
+              className="pl-12 pr-4 py-6 text-lg bg-gray-900/50 border-gray-700 focus:border-purple-500 rounded-full text-gray-100 placeholder:text-gray-500"
               data-testid="search-input"
             />
           </div>
