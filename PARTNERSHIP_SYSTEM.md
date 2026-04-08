@@ -213,7 +213,7 @@ Bottom of landing page, before final footer
 - "Powered by Generosity" heading
 - Grid/row of company logos
 - Grayscale by default, color on hover
-- Clickable (links to company website)
+- **NOT clickable** (no external links - keeps users on AU4A)
 - Caption: "These companies donate products to AU4A members. No ads. Just generosity."
 
 ### Code Example
@@ -225,13 +225,13 @@ Bottom of landing page, before final footer
     </h3>
     <div className="flex flex-wrap justify-center items-center gap-8">
       {sponsors.map((sponsor) => (
-        <a href={sponsor.website} target="_blank">
+        <div title={sponsor.company_name}>
           <img
             src={sponsor.logo_url}
             alt={sponsor.company_name}
             className="h-12 grayscale hover:grayscale-0"
           />
-        </a>
+        </div>
       ))}
     </div>
   </div>

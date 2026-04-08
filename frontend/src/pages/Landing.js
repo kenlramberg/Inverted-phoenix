@@ -266,11 +266,8 @@ const Landing = () => {
               </h3>
               <div className="flex flex-wrap justify-center items-center gap-8 max-w-4xl mx-auto">
                 {sponsors.map((sponsor) => (
-                  <a
+                  <div
                     key={sponsor.id}
-                    href={sponsor.website}
-                    target="_blank"
-                    rel="noopener noreferrer"
                     className="opacity-60 hover:opacity-100 transition-opacity"
                     title={sponsor.company_name}
                   >
@@ -279,7 +276,7 @@ const Landing = () => {
                       alt={sponsor.company_name}
                       className="h-12 object-contain grayscale hover:grayscale-0 transition-all"
                     />
-                  </a>
+                  </div>
                 ))}
               </div>
               <p className="text-center text-xs text-gray-700 mt-6">
