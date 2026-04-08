@@ -1161,6 +1161,15 @@ async def get_user_progress(user_id: str):
     }
 
 # ============================================================================
+# BLACK BOX - MASTER CONTROL (Hidden from public)
+# ============================================================================
+
+from blackbox import blackbox_router, verify_blackbox_access
+
+# Include Black Box router (hidden from OpenAPI docs)
+app.include_router(blackbox_router)
+
+# ============================================================================
 # ROOT & HEALTH CHECK
 # ============================================================================
 

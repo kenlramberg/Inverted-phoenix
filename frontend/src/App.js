@@ -12,6 +12,7 @@ import Journey from '@/pages/Journey';
 import RequestDetail from '@/pages/RequestDetail';
 import GivingPoll from '@/pages/GivingPoll';
 import WhatCanYouGive from '@/pages/WhatCanYouGive';
+import BlackBox from '@/pages/BlackBox';
 
 function App() {
   return (
@@ -28,6 +29,8 @@ function App() {
         <Route path="/request/:id" element={<RequestDetail />} />
         <Route path="/poll" element={<GivingPoll />} />
         <Route path="/give" element={<WhatCanYouGive />} />
+        {/* Hidden route - not linked from anywhere */}
+        <Route path="/blackbox" element={<BlackBox />} />
       </Routes>
     </BrowserRouter>
   );
