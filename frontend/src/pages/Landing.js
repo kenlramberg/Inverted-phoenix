@@ -14,6 +14,7 @@ const Landing = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [userProgress, setUserProgress] = useState(null);
   const [userId] = useState(localStorage.getItem('user_id') || `anon_${Date.now()}`);
+  const [sponsors, setSponsors] = useState([]);
 
   useEffect(() => {
     // Save user ID if new
@@ -21,6 +22,7 @@ const Landing = () => {
       localStorage.setItem('user_id', userId);
     }
     fetchUserProgress();
+    fetchSponsors();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -38,6 +40,17 @@ const Landing = () => {
       } catch (err) {
         console.error('Error creating user:', err);
       }
+    }
+  };
+
+  const fetchSponsors = async () => {
+    try {
+      const response = await axios.get(`${API}/sponsors`, {
+        params: { active_only: true, for_display: true }
+      });
+      setSponsors(response.data);
+    } catch (error) {
+      console.error('Error fetching sponsors:', error);
     }
   };
 
@@ -243,10 +256,42 @@ const Landing = () => {
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-gray-900 bg-black py-8 mt-20">
-        <div className="container mx-auto px-6 text-center text-gray-600 text-sm">
-          <p>AU4A - Ask Us 4 Anything</p>
-          <p className="mt-2">Built on contribution, not extraction.</p>
+      <footer className="border-t border-gray-900 bg-black py-12 mt-20">
+        <div className="container mx-auto px-6">
+          {/* Sponsor Logos */}
+          {sponsors.length > 0 && (
+            <div className="mb-12">
+              <h3 className="text-center text-sm text-gray-600 mb-6 uppercase tracking-wide">
+                Powered by Generosity
+              </h3>
+              <div className="flex flex-wrap justify-center items-center gap-8 max-w-4xl mx-auto">
+                {sponsors.map((sponsor) => (
+                  <a
+                    key={sponsor.id}
+                    href={sponsor.website}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="opacity-60 hover:opacity-100 transition-opacity"
+                    title={sponsor.company_name}
+                  >
+                    <img
+                      src={sponsor.logo_url}
+                      alt={sponsor.company_name}
+                      className="h-12 object-contain grayscale hover:grayscale-0 transition-all"
+                    />
+                  </a>
+                ))}
+              </div>
+              <p className="text-center text-xs text-gray-700 mt-6">
+                These companies donate products to AU4A members. No ads. Just generosity.
+              </p>
+            </div>
+          )}
+          
+          <div className="text-center text-gray-600 text-sm">
+            <p>AU4A - Ask Us 4 Anything</p>
+            <p className="mt-2">Built on contribution, not extraction.</p>
+          </div>
         </div>
       </footer>
     </div>

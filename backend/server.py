@@ -124,6 +124,102 @@ class EvaluationCreate(BaseModel):
     comments: Optional[str] = None
 
 # ============================================================================
+# MODELS - COMPANY PARTNERSHIPS (Ethical Exposure Model)
+# ============================================================================
+
+class CompanySponsor(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    company_name: str
+    website: str
+    logo_url: str
+    
+    # Contact
+    contact_name: Optional[str] = None
+    contact_email: str
+    contact_phone: Optional[str] = None
+    
+    # Agreement
+    agreement_status: str = "pending"  # pending, active, inactive
+    agreement_date: Optional[datetime] = None
+    
+    # Terms
+    ships_to_members: bool = True
+    provides_warranty: bool = True
+    fulfillment_terms: Optional[str] = None
+    
+    # Display
+    display_on_homepage: bool = False
+    display_order: int = 0
+    
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+class CompanySponsorCreate(BaseModel):
+    company_name: str
+    website: str
+    logo_url: str
+    contact_email: str
+    contact_name: Optional[str] = None
+    contact_phone: Optional[str] = None
+    fulfillment_terms: Optional[str] = None
+
+class DonatedProduct(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    sponsor_id: str
+    
+    product_name: str
+    description: str
+    category: str = "general"
+    estimated_value: Optional[float] = None
+    
+    quantity_available: int = 0
+    quantity_fulfilled: int = 0
+    
+    fulfillment_type: str = "direct_ship"  # direct_ship, warehouse, digital
+    requires_approval: bool = True
+    
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+class DonatedProductCreate(BaseModel):
+    sponsor_id: str
+    product_name: str
+    description: str
+    category: str = "general"
+    estimated_value: Optional[float] = None
+    quantity_available: int = 1
+    fulfillment_type: str = "direct_ship"
+
+class OutreachCampaign(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    company_name: str
+    company_email: str
+    company_website: Optional[str] = None
+    
+    status: str = "pending"  # pending, sent, opened, responded, partnered, declined
+    
+    email_subject: str
+    email_body: str
+    sent_at: Optional[datetime] = None
+    opened_at: Optional[datetime] = None
+    responded_at: Optional[datetime] = None
+    
+    notes: Optional[str] = None
+    
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+class OutreachCampaignCreate(BaseModel):
+    company_name: str
+    company_email: str
+    company_website: Optional[str] = None
+    notes: Optional[str] = None
+
+# ============================================================================
 # MODELS - CONTRIBUTION OFFERS (Supply Side)
 # ============================================================================
 
@@ -471,6 +567,227 @@ async def update_request_scores(request_id: str):
             }
         }
     )
+
+# ============================================================================
+# API ROUTES - COMPANY PARTNERSHIPS & OUTREACH
+# ============================================================================
+
+@api_router.post("/sponsor", response_model=CompanySponsor)
+async def create_sponsor(sponsor_data: CompanySponsorCreate):
+    """Add a company sponsor (admin only in production)"""
+    sponsor = CompanySponsor(**sponsor_data.model_dump())
+    doc = sponsor.model_dump()
+    doc['created_at'] = doc['created_at'].isoformat()
+    doc['updated_at'] = doc['updated_at'].isoformat()
+    if doc.get('agreement_date'):
+        doc['agreement_date'] = doc['agreement_date'].isoformat()
+    
+    await db.sponsors.insert_one(doc)
+    return sponsor
+
+@api_router.get("/sponsors", response_model=List[CompanySponsor])
+async def get_sponsors(active_only: bool = True, for_display: bool = False):
+    """Get company sponsors"""
+    filter_query = {}
+    if active_only:
+        filter_query["agreement_status"] = "active"
+    if for_display:
+        filter_query["display_on_homepage"] = True
+    
+    sponsors = await db.sponsors.find(filter_query, {"_id": 0}).sort("display_order", 1).to_list(100)
+    
+    for sponsor in sponsors:
+        sponsor['created_at'] = datetime.fromisoformat(sponsor['created_at'])
+        sponsor['updated_at'] = datetime.fromisoformat(sponsor['updated_at'])
+        if sponsor.get('agreement_date') and isinstance(sponsor['agreement_date'], str):
+            sponsor['agreement_date'] = datetime.fromisoformat(sponsor['agreement_date'])
+    
+    return sponsors
+
+@api_router.patch("/sponsor/{sponsor_id}/activate")
+async def activate_sponsor(sponsor_id: str):
+    """Activate a sponsor (after agreement signed)"""
+    result = await db.sponsors.update_one(
+        {"id": sponsor_id},
+        {"$set": {
+            "agreement_status": "active",
+            "agreement_date": datetime.now(timezone.utc).isoformat(),
+            "display_on_homepage": True,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="Sponsor not found")
+    
+    return {"message": "Sponsor activated"}
+
+@api_router.post("/donated-product", response_model=DonatedProduct)
+async def add_donated_product(product_data: DonatedProductCreate):
+    """Add a product donated by a sponsor"""
+    product = DonatedProduct(**product_data.model_dump())
+    doc = product.model_dump()
+    doc['created_at'] = doc['created_at'].isoformat()
+    
+    await db.donated_products.insert_one(doc)
+    return product
+
+@api_router.get("/donated-products", response_model=List[DonatedProduct])
+async def get_donated_products(
+    sponsor_id: Optional[str] = None,
+    category: Optional[str] = None,
+    available_only: bool = True
+):
+    """Get donated products catalog"""
+    filter_query = {}
+    if sponsor_id:
+        filter_query["sponsor_id"] = sponsor_id
+    if category:
+        filter_query["category"] = category
+    if available_only:
+        filter_query["$expr"] = {"$gt": [{"$subtract": ["$quantity_available", "$quantity_fulfilled"]}, 0]}
+    
+    products = await db.donated_products.find(filter_query, {"_id": 0}).to_list(100)
+    
+    for product in products:
+        product['created_at'] = datetime.fromisoformat(product['created_at'])
+    
+    return products
+
+@api_router.post("/outreach", response_model=OutreachCampaign)
+async def create_outreach(outreach_data: OutreachCampaignCreate):
+    """Create outreach campaign to a company"""
+    # Generate email content
+    email_subject = f"Invitation to join the greatest social experiment in history"
+    
+    email_body = f"""Dear {outreach_data.company_name} Team,
+
+We're reaching out to invite you to be part of something extraordinary.
+
+AU4A (Ask Us 4 Anything) is the greatest social experiment in history. We're building a platform where human goodwill becomes reality—where people's wishes are fulfilled not through commerce, but through contribution.
+
+Here's what we're offering:
+
+**What {outreach_data.company_name} Would Provide:**
+• Products donated to AU4A members who genuinely need them
+• Logo and rights to display on our platform
+• Direct shipping to members
+• Full warranty on donated products
+
+**What {outreach_data.company_name} Would Receive:**
+• Logo display on AU4A homepage (seen by thousands)
+• Association with a revolutionary social movement
+• Brand exposure tied to generosity, not advertising
+• Recognition as a company that gives, not just sells
+• Part of internet history
+
+**Important:** This is NOT traditional advertising. There are no product listings on our site. Only your logo, displayed proudly at the bottom of our homepage, representing companies that believe in contribution over extraction.
+
+We don't rank by money. We don't sell placement. We don't do sponsored content.
+
+We only recognize companies willing to genuinely give.
+
+If {outreach_data.company_name} is interested in being part of this movement, we'd love to discuss the partnership details.
+
+Are you ready to be part of something that changes how the internet works?
+
+Best regards,
+The AU4A Team
+
+P.S. This isn't a sales pitch. It's an invitation to make history.
+"""
+    
+    campaign = OutreachCampaign(
+        **outreach_data.model_dump(),
+        email_subject=email_subject,
+        email_body=email_body
+    )
+    
+    doc = campaign.model_dump()
+    doc['created_at'] = doc['created_at'].isoformat()
+    if doc.get('sent_at'):
+        doc['sent_at'] = doc['sent_at'].isoformat()
+    if doc.get('opened_at'):
+        doc['opened_at'] = doc['opened_at'].isoformat()
+    if doc.get('responded_at'):
+        doc['responded_at'] = doc['responded_at'].isoformat()
+    
+    await db.outreach_campaigns.insert_one(doc)
+    
+    return campaign
+
+@api_router.get("/outreach", response_model=List[OutreachCampaign])
+async def get_outreach_campaigns(status: Optional[str] = None, limit: int = 100):
+    """Get outreach campaigns"""
+    filter_query = {}
+    if status:
+        filter_query["status"] = status
+    
+    campaigns = await db.outreach_campaigns.find(filter_query, {"_id": 0}).sort("created_at", -1).limit(limit).to_list(limit)
+    
+    for campaign in campaigns:
+        campaign['created_at'] = datetime.fromisoformat(campaign['created_at'])
+        if campaign.get('sent_at') and isinstance(campaign['sent_at'], str):
+            campaign['sent_at'] = datetime.fromisoformat(campaign['sent_at'])
+        if campaign.get('opened_at') and isinstance(campaign['opened_at'], str):
+            campaign['opened_at'] = datetime.fromisoformat(campaign['opened_at'])
+        if campaign.get('responded_at') and isinstance(campaign['responded_at'], str):
+            campaign['responded_at'] = datetime.fromisoformat(campaign['responded_at'])
+    
+    return campaigns
+
+@api_router.patch("/outreach/{campaign_id}/mark-sent")
+async def mark_outreach_sent(campaign_id: str):
+    """Mark outreach as sent"""
+    result = await db.outreach_campaigns.update_one(
+        {"id": campaign_id},
+        {"$set": {
+            "status": "sent",
+            "sent_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    
+    return {"message": "Outreach marked as sent"}
+
+@api_router.get("/match-products/{request_id}")
+async def match_donated_products(request_id: str):
+    """Find donated products that match a request"""
+    request = await db.requests.find_one({"id": request_id}, {"_id": 0})
+    if not request:
+        raise HTTPException(status_code=404, detail="Request not found")
+    
+    # Simple keyword matching
+    request_keywords = request['content'].lower().split()
+    
+    # Find products with available quantity
+    products = await db.donated_products.find(
+        {
+            "$expr": {"$gt": [{"$subtract": ["$quantity_available", "$quantity_fulfilled"]}, 0]},
+            "$or": [
+                {"product_name": {"$regex": "|".join(request_keywords[:5]), "$options": "i"}},
+                {"description": {"$regex": "|".join(request_keywords[:5]), "$options": "i"}},
+                {"category": request['category']}
+            ]
+        },
+        {"_id": 0}
+    ).limit(10).to_list(10)
+    
+    for product in products:
+        product['created_at'] = datetime.fromisoformat(product['created_at'])
+        # Get sponsor info
+        sponsor = await db.sponsors.find_one({"id": product['sponsor_id']}, {"_id": 0})
+        if sponsor:
+            product['sponsor_name'] = sponsor['company_name']
+            product['sponsor_logo'] = sponsor['logo_url']
+    
+    return {
+        "request_id": request_id,
+        "request_content": request['content'],
+        "matched_products": products
+    }
 
 # ============================================================================
 # API ROUTES - CONTRIBUTION OFFERS (Supply Side / Ramp-up)
